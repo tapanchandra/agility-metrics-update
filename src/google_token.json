@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "my-jda-gapi-project",
+  "private_key_id": "a0cbec47528bed2c271510ac6bf72d792e8c8e0f",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCmp41hfD8apfIB\nhGDPnJKdTVUcCK6aFctUPoCwEwp6zxXbvequH5N++G1W3a+z3OIy9mFF3yck1/Pq\nbDwFBDEI9gAIqfjBMmoeQsMFM96Z8GbNA2xyX03ooJZ5f3YicaiP3vrN51YogbXC\nMkYOAogCSbU9S7w21YBrduFPj1x1dbzMA7MIcplVW7XlEFPhcWDyUXoViD6PISkA\nu8OnG87Olv1V4Qvxq31rRj79N4pO+WD9FjnoktHWrvYNXjmyrg5dIx46bY3XKYKK\nlve0ilRD2Y5MqVsFJhKxoEJsyRiWSnx0Ed6BbckoRPIYK0CStOLG4qMrniV0/WGv\nxhS5fUKLAgMBAAECggEAKeG1wCgPW80UcpkoE0TP+8QxfWgZKRQNE1DZ2mYOnipo\n3d5ume/Ji4E3STtRKqx6FECi1YJtPe8fl2w38TLKd+wKuiKtJzBaRtyUUjxk1t75\nltAjcuLMm4ewCTylHabeq7ln4lMe7fMbEIC95ktwjtKjP5JG7KjfKyKnIO1wWPwj\nPySHu302JIM1r0MFRu/aa1fJPdwQo1TYzL07UGMz7A3dQMk+PVjYreCtyNTsQTAS\nohxe2D8o1vuzNGoLIiQ2I95wc1JlYSZPnYS5ETJ9PXr/D3BC8RxBGneFoC/1cQqs\noWoxjXSsBpFgJUWUPDDKFH8U6U9APuddtY5N0+HD4QKBgQDoA2Rng5zpile1lYJS\nmj0R6iH55TT2pcbSsPGCSCjnsHikZ48GJk4cCzZy9WsW9KhQx06BSy6+DCH9qQpU\n0dQR7ACv8LS14WEF5/ea80IudGqOhNBm+n9RbdvXH72CTP2t5OSrjISv2RCEHGdX\nHGErt1ChRm8dQve8cwwrnWC/EwKBgQC34lWi/zV4jlgefR31rvRfhT6hhPRVgX/z\nPpFFup2obVTClb8PLGak0oiLIPfMwbzILdZhGIaZDub2tiD7Gj967tcyG4uCEwJz\nr1TubdoIB5KdwdPBgRLXK3KY4PZ8IHM8O3JqFD4ZKnA6xf1GWm0b2vwFzl0MJBnn\nj+oS20VFqQKBgQCmqyEqd1J2NipRyGhJPIGYZ/AmWzBT6rzMR84GQB4aahwQRlBp\nI4VDAg8IQCLA59otxS8xFDgsz/xvA0rnqaBFi5rmyOyYJ6KSIpQtnIgzZO/TF7e5\n8kMZ1OhzPlrdyr8Fd4OJdLUwuabysJDP9BQd2l8yq61QgPYES0U346NHPwKBgB3y\n/SOpEVprRKrikeib8C1GlGbWMr1idCZ4AE0tEdSGyhFPNmkQQD+EEr0mR3XP8CFi\nZdI2nmV7ad6w1zpOkhxBnkcI+XXcBsA0xE55EdPQ9+49zXFsxlbJOsbvjPW2i046\nGG5ykZKjuNe5u4Cj5bVtuzJu4/TARH/Ujrk3gVbRAoGAYrmTIS05CEQQs5cuCuZX\nXtsaMBT+HJ6v+/B719g0qO0JoLO9hdaCe7jSywhdc/0HeT2zXTyUvpFK/f7Va3av\nEg9YYZ6GN8g4dD9xLVjObFFLxiQ5mpMzkJLMmb/WxgqmU+pdbIvKS2BXqBseMg0c\n4x43zKkl0+RPvzNdUCl+AY8=\n-----END PRIVATE KEY-----\n",
+  "client_email": "art-metrics-update@my-jda-gapi-project.iam.gserviceaccount.com",
+  "client_id": "101165255503948447155",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://accounts.google.com/o/oauth2/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/art-metrics-update%40my-jda-gapi-project.iam.gserviceaccount.com"
+}
