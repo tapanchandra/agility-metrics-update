@@ -6,25 +6,31 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 from jira import JIRA
 from datetime import datetime as dt
-import sys
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from helper import sort_list_by_id,flushed_print,ensure_standard_format
+from gspread.exceptions import WorksheetNotFound
 
 #Suppress Insecure Request Warnings
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-agility_workbook = 'Fitnesse - JIRA'
+resource_planning_workbook = 'Resource Planning'
+agility_workbook = 'Agility Goal Tracking by Product Line'
 agility_worksheet = 'Enterprise Arch'
-team_name = 'IF - Frontrunners'
+agility_team_name = 'IF - Frontrunners'
+jira_team_name = 'System'
 starting_sprint = 'DI_DCS_17.06'
 data_workbook_name = 'Data'
 data_worksheet_name = 'Sprints'
-ftr_agility_metrics_workbook = 'ftr-agility-metrics-entries'
-ftr_agility_metrics_worksheet = 'entries'
-stories_from_last_sprint = 'project = \"IF Integration\" AND Sprint = \"{0}\" AND Sprint = \"{1}\" AND \"Dev team\" = \"System\"'
-stories_committed_currentsprint = 'project = \"IF Integration\" AND Sprint = \"{0}\" AND \"Dev team\" = \"System\"'
-stories_delivered_currentsprint = 'project = \"IF Integration\" AND Sprint = \"{0}\" AND \"Dev team\" = \"System\" AND status = \"Closed\"'
+ftr_agility_metrics_workbook_name = 'ftr-agility-metrics-entries'
+ftr_agility_metrics_worksheet_name = 'entries'
+stories_from_last_sprint = 'project = \"IF Integration\" AND Sprint = \"{curr_sprint}\" AND Sprint = \"{prev_sprint}\" AND \"Dev team\" = \"' + jira_team_name + '\" AND type = Story'
+stories_committed_currentsprint = 'project = \"IF Integration\" AND Sprint = \"{curr_sprint}\" AND Sprint != \"{prev_sprint}\"  AND \"Dev team\" = \"' + jira_team_name + '\" AND type = Story'
+stories_delivered_currentsprint = 'project = \"IF Integration\" AND Sprint = \"{curr_sprint}\" AND Sprint != \"{next_sprint}\"  AND \"Dev team\" = \"' + jira_team_name + '\" AND type = Story AND status = \"Closed\"'
 
+jira_format = 0
+data_sheet_format = 1
+agility_sheet_format = 2
 
 # TO DO find the current sprint  
 # https://docs.google.com/spreadsheets/d/1n65r7nhj37TxV4rrRh-0sf0zm41vBacgSEIDimFdgiI/edit#gid=439243553 -> SPrints sheet 
@@ -43,42 +49,6 @@ def get_jira_instance():
     })
     return jira
 
-def ensure_standard_format(sprint,format_code):
-    pattern = 'DI_DCS_([\d.]+)' if(sprint.startswith('DI')) else '([\d.]+)' 
-    matcher = re.search(pattern,sprint,flags=0)
-
-    if(matcher is None):
-        print('ERROR')
-        return None
-
-    sprint_num = matcher.group(1) if(matcher is not None) else None
-
-    tokens = sprint_num.split('.')
-
-    year = int(tokens[0]) if (len(tokens[0]) == 4 and  tokens[0].isdigit() and tokens[0].startswith('20')) else int('20' + tokens[0]) if (len(tokens[0]) == 2 and tokens[0].isdigit()) else -1
-    sprint_iteration = int(tokens[1]) if (tokens[1].isdigit()) else -1
-    padded_sprint_iteration = '0' + str(sprint_iteration) if (sprint_iteration < 10) else str(sprint_iteration)
-
-    if(year == -1 or sprint_iteration == -1):
-        return None
-    else:
-        return str(year) + '.' + padded_sprint_iteration if format_code == 1 else 'DI_DCS_' + str(year)[2:4] + '.' + str(sprint_iteration)
-
-    # jira_format = 0
-    # gsheet_format = 1
-    # print(ensure_standard_format('DI_DCS_2017.06',gsheet_format))
-    # print(ensure_standard_format('2017.06',gsheet_format))
-
-    # print(ensure_standard_format('2017.6',jira_format))
-
-def flushed_print(msg):
-    print(msg)
-    sys.stdout.flush()
-
-def sort_list_by_id(sprint_list):
-    #TODO : Sort all entries by sprint id
-    return sprint_list
-
 def compare_sprint_ids(first_sprint,second_sprint):
     first_sprint_num = float(first_sprint[7:])
     second_sprint_num = float(second_sprint[7:])
@@ -93,6 +63,14 @@ def get_google_sheet_instance(workbook_name,worksheet_name):
     worksheet_instance = workbook_instance.worksheet(worksheet_name)
 
     return workbook_instance,worksheet_instance
+
+def get_googlesheet_workbook_instance(workbook_name):
+    scope = ['https://spreadsheets.google.com/feeds']
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('src\google_token.json',scope)
+    gclient = gspread.authorize(credentials)
+    workbook_instance = gclient.open(workbook_name)  
+
+    return workbook_instance
 
 def get_required_sprints():
     
@@ -119,25 +97,21 @@ def get_required_sprints():
             break
 
         row_index += 1
-    
-    print(sprint_list)
     #Append prefix to all sprint ids
-    sprint_list = [[ensure_standard_format(x[0],1),x[1],x[2]] for x in sprint_list] 
+    sprint_list = [[ensure_standard_format(x[0],data_sheet_format),x[1],x[2]] for x in sprint_list] 
 
     #Sort sprint list by sprint index   
     sprint_list = sort_list_by_id(sprint_list)
-    print(sprint_list)
-    exit()
     
     return sprint_list
 
-def get_sprint_rows_by_team(metrics_sheet,team_name):
+def get_sprint_rows_by_team(metrics_sheet,agility_team_name):
 
     #Map containing all existing sprint records and their row ids in the sheet
     sprints_row_map = {}
 
     #Get all records for the current team 
-    team_records_list = metrics_sheet.findall(team_name)
+    team_records_list = metrics_sheet.findall(agility_team_name)
     team_entries_row_numbers = sorted([record.row for record in team_records_list])
 
     iterationnum_cells = metrics_sheet.range('B' + str(team_entries_row_numbers[0]) + ':B' + str(team_entries_row_numbers[-1]))
@@ -147,44 +121,80 @@ def get_sprint_rows_by_team(metrics_sheet,team_name):
     
     return sprints_row_map
 
+
 def insert_sprint_details_googlesheet(ftr_agility_sheet,details_to_insert,insert_at_row):
 
-    global team_name
+    global agility_team_name
 
     # Insert the missing and current sprint details into google sheet
-    # flushed_print([team_name,details_to_insert[0],details_to_insert[1],details_to_insert[2]])
-    # metrics_sheet.insert_row([team_name,details_to_insert[0]],insert_at_row)
+    # flushed_print([agility_team_name,details_to_insert[0],details_to_insert[1],details_to_insert[2]])
+    # metrics_sheet.insert_row([agility_team_name,details_to_insert[0]],insert_at_row)
     
     iteration_start_date = dt.strptime(details_to_insert[1],'%d-%b-%Y').strftime('%m/%d/%Y')
     iteration_end_date =  dt.strptime(details_to_insert[2],'%d-%b-%Y').strftime('%m/%d/%Y')
     
-    ftr_agility_sheet.append_row([insert_at_row,team_name,str(details_to_insert[0]),iteration_start_date,iteration_end_date])
+    ftr_agility_sheet.append_row([insert_at_row,agility_team_name,float(details_to_insert[0]),iteration_start_date,iteration_end_date,
+        float(details_to_insert[1]),float(details_to_insert[2]),float(details_to_insert[3]),float(details_to_insert[4]),float(details_to_insert[5]),
+            float(details_to_insert[6]),float(details_to_insert[7])])
 
 
-def fetch_sprint_details(sprint_name,sprint_ids):
-
-    jira = get_jira_instance()
+def increment_sprint(current_sprint,sprint_list):
+    if(current_sprint not in sprint_list):
+        print('Sprint '+ current_sprint +' is not present in the sprint list')
+        return None
     
-    jira_current_sprint = ensure_standard_format('2017.',0)
-    sprint_stories = jira.search_issues(stories_delivered_currentsprint.format(jira_current_sprint),maxResults=500)
+    max_index = len(sprint_list) - 1
+    current_sprint_index = sprint_list.index(current_sprint)
+    return sprint_list[current_sprint_index + 1] if current_sprint_index < max_index else None
 
-    print(sprint_stories)
-
-
-    # for story_id in sprint_stories:
-    #     if(story_id.key == 'DCS-14746'):
-    #         print('story points : ' + str(story_id.fields.customfield_10003))
-    #         print('Story Status : ' + story_id.fields.status.name)
-    #         sprint_list = story_id.fields.customfield_10006
-
-    #         for sprint in sprint_list:
-    #             print(sprint)
-
-    #         exit()
+def decrement_sprint(current_sprint,sprint_list):
+    if(current_sprint not in sprint_list):
+        print('Sprint '+ current_sprint +' is not present in the sprint list')
+        return None
     
-    return sprint
+    current_sprint_index = sprint_list.index(current_sprint)
+    return sprint_list[current_sprint_index - 1] if current_sprint_index > 0 else None
 
-def refresh_sheet(workbook,worksheet):
+def fetch_sprint_details(jira_current_sprint,sprint_list):
+
+    jira_previous_sprint = decrement_sprint(jira_current_sprint,sprint_list)
+    jira_next_sprint = increment_sprint(jira_current_sprint,sprint_list)
+
+    #Get Stories carried over from last iteration
+    jira_query = stories_from_last_sprint.format(curr_sprint=jira_current_sprint,prev_sprint=jira_previous_sprint)
+    carried_over_stories = jira.search_issues(jira_query,maxResults=500)
+    print('Carried over stories are : '+ ','.join([story.key for story in carried_over_stories]))
+    no_of_carried_stories = len(carried_over_stories)
+    
+
+    #Get Stories committed this iteration
+    jira_query = stories_committed_currentsprint.format(curr_sprint=jira_current_sprint,prev_sprint=jira_previous_sprint)
+    committed_stories = jira.search_issues(jira_query,maxResults=500)
+    print('Committed stories are : '+ ','.join([story.key for story in committed_stories]))
+    no_of_committed_stories = len(committed_stories)
+    total_points_committed = sum([ int(story.fields.customfield_10003) for story in committed_stories])
+
+    #Get Stories delivered this iteration
+    jira_query = stories_delivered_currentsprint.format(curr_sprint=jira_current_sprint,next_sprint=jira_next_sprint)
+    delivered_stories = jira.search_issues(jira_query,maxResults=500)
+    print('Delivered stories are : '+ ','.join([story.key for story in delivered_stories]))
+    no_of_delivered_stories = len(delivered_stories)
+    total_points_delivered = sum([ int(story.fields.customfield_10003) for story in delivered_stories])
+
+    # Get the resource google sheet instance for the current sprint
+    resource_current_sprint_worksheet = resource_workbook.worksheet(jira_current_sprint)
+
+    # Get the planned staff of current iteration
+    planned_staff = resource_current_sprint_worksheet.cell(32,4).value
+
+    # Get the actual staff of current iteration
+    actual_staff = resource_current_sprint_worksheet.cell(33,4).value
+
+    print(jira_current_sprint,no_of_carried_stories,no_of_committed_stories,no_of_delivered_stories,total_points_committed,total_points_delivered,actual_staff,planned_staff)
+
+    return [jira_current_sprint,no_of_carried_stories,no_of_committed_stories,no_of_delivered_stories,total_points_committed,total_points_delivered,actual_staff,planned_staff]
+
+def recreate_sheet(workbook,worksheet):
     #Delete the JIRA Problems sheet
 
     try:
@@ -199,22 +209,23 @@ def refresh_sheet(workbook,worksheet):
 
 def main():
 
-    global team_name
+    global agility_team_name
 
     #Read agility metrics sheet
     metrics_workbook,metrics_sheet = get_google_sheet_instance(agility_workbook,agility_worksheet)
     flushed_print('got metrics sheet')
 
     #Get the sprint details till date starting from starting_sprint 
-    sprint_list = get_required_sprints()
+    # sprint_list = get_required_sprints()
+    sprint_list = [['DI_DCS_17.06', '16-Mar-2017', '29-Mar-2017'], ['DI_DCS_17.07', '30-Mar-2017', '12-Apr-2017'], ['DI_DCS_17.08', '13-Apr-2017', '26-Apr-2017'], ['DI_DCS_17.09', '27-Apr-2017', '10-May-2017'], ['DI_DCS_17.10', '11-May-2017', '24-May-2017'], ['DI_DCS_17.11', '25-May-2017', '7-Jun-2017']]
     flushed_print('Generated sprint_list')
 
     #Get all rows for my team from the agility metrics sheet    
-    sprints_row_map = get_sprint_rows_by_team(metrics_sheet,team_name)
+    sprints_row_map = get_sprint_rows_by_team(metrics_sheet,agility_team_name)
     flushed_print('Created sprints_row_map')
 
     #get the row number for the starting sprint in the sgility metrics sheet
-    start_sprint_row_num = -1 if ensure_standard_format(starting_sprint,1) not in sprints_row_map.keys() else sprints_row_map[ensure_standard_format(starting_sprint,1)]
+    start_sprint_row_num = -1 if ensure_standard_format(starting_sprint,agility_sheet_format) not in sprints_row_map.keys() else sprints_row_map[ensure_standard_format(starting_sprint,agility_sheet_format)]
     flushed_print('Starting sprint row num is ' + str(start_sprint_row_num))
 
     #Abort if start sprint is not present in the sheet
@@ -223,20 +234,26 @@ def main():
         exit()
     
     # Get the instance for the ftr-agility-metrics-entries workbook 
-    ftr_agility_sheet = refresh_sheet(ftr_agility_metrics_workbook,ftr_agility_metrics_worksheet)
+    ftr_agility_sheet = recreate_sheet(ftr_agility_metrics_workbook_name,ftr_agility_metrics_worksheet_name)
+
+    # Fetch sprint list in jira format 
+    jira_sprint_list = [ensure_standard_format(x[0],jira_format) for x in sprint_list]
+    flushed_print(jira_sprint_list)
 
     #For each sprint in sprint_list, check if there exists a row at `sprint_row_num` row in agility metrics sheet
     sprint_row_num = start_sprint_row_num    
+
     for sprint in sprint_list:
+
+        sprint_num = ensure_standard_format(sprint[0],agility_sheet_format)
         #verify if there is a record with this sprint id at this row number
-        flushed_print('Looking for ' + sprint[0] + ' at ' + str(sprint_row_num))
+        flushed_print('Looking for ' + sprint_num + ' at ' + str(sprint_row_num))
         iteration_num = metrics_sheet.cell(sprint_row_num,2).value
         
-        if iteration_num != sprint[0]:
+        if iteration_num != sprint_num:
             #If missing , add a row
             flushed_print('Inserting a row at ' + str(sprint_row_num))
-            sprint_details = fetch_sprint_details(sprint[0])
-
+            sprint_details = fetch_sprint_details(ensure_standard_format(sprint_num,jira_format),jira_sprint_list)
             
             insert_sprint_details_googlesheet(ftr_agility_sheet,sprint_details,sprint_row_num)
             sprint_row_num -= 1
@@ -245,7 +262,9 @@ def main():
         #Check for next sprint in sprint_list
         sprint_row_num += 1
 
+jira = get_jira_instance()
+resource_workbook = get_googlesheet_workbook_instance(resource_planning_workbook)
+
 if __name__ == '__main__':
-    # main()
-    # fetch_sprint_details()
-    get_required_sprints()
+    main()
+    
