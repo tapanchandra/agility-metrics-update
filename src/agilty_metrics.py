@@ -90,19 +90,20 @@ def get_required_sprints():
         from_date = dt.strptime(row_data[1],'%d-%b-%Y')
         to_date = dt.strptime(row_data[2],'%d-%b-%Y')
         
+        if todays_date <= to_date:
+            break
+
         if(compare_sprint_ids(sprint_id,starting_sprint) >= 0):
             sprint_list.append([row_data[0],row_data[1],row_data[2]])
 
-        if from_date <= todays_date <= to_date:
-            break
-
+        
         row_index += 1
     #Append prefix to all sprint ids
     sprint_list = [[ensure_standard_format(x[0],data_sheet_format),x[1],x[2]] for x in sprint_list] 
 
     #Sort sprint list by sprint index   
     sprint_list = sort_list_by_id(sprint_list)
-    
+     
     return sprint_list
 
 def get_sprint_rows_by_team(metrics_sheet,agility_team_name):
@@ -122,20 +123,25 @@ def get_sprint_rows_by_team(metrics_sheet,agility_team_name):
     return sprints_row_map
 
 
-def insert_sprint_details_googlesheet(ftr_agility_sheet,details_to_insert,insert_at_row):
+def insert_sprint_details_googlesheet(ftr_agility_sheet,details_to_insert):
 
     global agility_team_name
 
-    # Insert the missing and current sprint details into google sheet
-    # flushed_print([agility_team_name,details_to_insert[0],details_to_insert[1],details_to_insert[2]])
-    # metrics_sheet.insert_row([agility_team_name,details_to_insert[0]],insert_at_row)
-    
     iteration_start_date = dt.strptime(details_to_insert[1],'%d-%b-%Y').strftime('%m/%d/%Y')
     iteration_end_date =  dt.strptime(details_to_insert[2],'%d-%b-%Y').strftime('%m/%d/%Y')
     
-    ftr_agility_sheet.append_row([insert_at_row,agility_team_name,float(details_to_insert[0]),iteration_start_date,iteration_end_date,
-        float(details_to_insert[1]),float(details_to_insert[2]),float(details_to_insert[3]),float(details_to_insert[4]),float(details_to_insert[5]),
-            float(details_to_insert[6]),float(details_to_insert[7])])
+    ftr_agility_sheet.append_row(
+        [agility_team_name,
+        float(details_to_insert[0]),
+        iteration_start_date,
+        iteration_end_date,
+        float(details_to_insert[1]),
+        float(details_to_insert[2]),
+        float(details_to_insert[3]),
+        float(details_to_insert[4]),
+        float(details_to_insert[5]),
+        float(details_to_insert[6]),
+        float(details_to_insert[7])])
 
 
 def increment_sprint(current_sprint,sprint_list):
@@ -211,60 +217,30 @@ def main():
 
     global agility_team_name
 
-    #Read agility metrics sheet
-    metrics_workbook,metrics_sheet = get_google_sheet_instance(agility_workbook,agility_worksheet)
-    flushed_print('got metrics sheet')
-
     #Get the sprint details till date starting from starting_sprint 
-    # sprint_list = get_required_sprints()
-    sprint_list = [['DI_DCS_17.06', '16-Mar-2017', '29-Mar-2017'], ['DI_DCS_17.07', '30-Mar-2017', '12-Apr-2017'], ['DI_DCS_17.08', '13-Apr-2017', '26-Apr-2017'], ['DI_DCS_17.09', '27-Apr-2017', '10-May-2017'], ['DI_DCS_17.10', '11-May-2017', '24-May-2017'], ['DI_DCS_17.11', '25-May-2017', '7-Jun-2017']]
+    sprint_list = get_required_sprints()
     flushed_print('Generated sprint_list')
-
-    #Get all rows for my team from the agility metrics sheet    
-    sprints_row_map = get_sprint_rows_by_team(metrics_sheet,agility_team_name)
-    flushed_print('Created sprints_row_map')
-
-    #get the row number for the starting sprint in the sgility metrics sheet
-    start_sprint_row_num = -1 if ensure_standard_format(starting_sprint,agility_sheet_format) not in sprints_row_map.keys() else sprints_row_map[ensure_standard_format(starting_sprint,agility_sheet_format)]
-    flushed_print('Starting sprint row num is ' + str(start_sprint_row_num))
-
-    #Abort if start sprint is not present in the sheet
-    if(start_sprint_row_num == -1):
-        print('[ERROR] : The specified start sprint was not present in the google sheet. The start sprint id should already have been present in the sheet.')
-        exit()
     
     # Get the instance for the ftr-agility-metrics-entries workbook 
     ftr_agility_sheet = recreate_sheet(ftr_agility_metrics_workbook_name,ftr_agility_metrics_worksheet_name)
 
     # Fetch sprint list in jira format 
     jira_sprint_list = [ensure_standard_format(x[0],jira_format) for x in sprint_list]
-    flushed_print(jira_sprint_list)
 
-    #For each sprint in sprint_list, check if there exists a row at `sprint_row_num` row in agility metrics sheet
-    sprint_row_num = start_sprint_row_num    
-
+    #For each sprint in sprint_list, generate a agility metrics row
     for sprint in sprint_list:
 
         sprint_num = ensure_standard_format(sprint[0],agility_sheet_format)
-        #verify if there is a record with this sprint id at this row number
-        flushed_print('Looking for ' + sprint_num + ' at ' + str(sprint_row_num))
-        iteration_num = metrics_sheet.cell(sprint_row_num,2).value
         
-        if iteration_num != sprint_num:
-            #If missing , add a row
-            flushed_print('Inserting a row at ' + str(sprint_row_num))
-            sprint_details = fetch_sprint_details(ensure_standard_format(sprint_num,jira_format),jira_sprint_list)
-            
-            insert_sprint_details_googlesheet(ftr_agility_sheet,sprint_details,sprint_row_num)
-            sprint_row_num -= 1
+        flushed_print('Inserting a row at for ' + str(sprint_num))
+        sprint_details = fetch_sprint_details(ensure_standard_format(sprint_num,jira_format),jira_sprint_list)
+        
+        insert_sprint_details_googlesheet(ftr_agility_sheet,sprint_details)
+        
 
-        
-        #Check for next sprint in sprint_list
-        sprint_row_num += 1
 
 jira = get_jira_instance()
 resource_workbook = get_googlesheet_workbook_instance(resource_planning_workbook)
-
 if __name__ == '__main__':
     main()
     
