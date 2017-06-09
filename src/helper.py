@@ -1,6 +1,13 @@
 import sys
 import re
 
+
+def compare_sprints(sprint_list,first_sprint,second_sprint):
+    first_sprint_index = sprint_list.index(first_sprint)
+    second_sprint_index = sprint_list.index(second_sprint)
+    
+    return 0 if(first_sprint_index == second_sprint_index) else -1 if (first_sprint_index < second_sprint_index) else 1
+
 def ensure_standard_format(sprint,format_code):
     pattern = 'DI_DCS_([\d.]+)' if(sprint.startswith('DI')) else '([\d.]+)' 
     matcher = re.search(pattern,sprint,flags=0)
@@ -20,7 +27,7 @@ def ensure_standard_format(sprint,format_code):
     if(year == -1 or sprint_iteration == -1):
         return None
     else:
-        return str(year) + '.' + padded_sprint_iteration if format_code == 1 else 'DI_DCS_' + str(year)[2:4] + '.' + str(sprint_iteration) if format_code == 0 else str(year) + '.' + str(sprint_iteration)
+        return 'DI_DCS_' + str(year)[2:4] + '.' + padded_sprint_iteration if format_code == 1 else 'DI_DCS_' + str(year)[2:4] + '.' + str(sprint_iteration) if format_code == 0 else str(year) + '.' + str(padded_sprint_iteration)
 
 
 def flushed_print(msg):
